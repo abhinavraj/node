@@ -136,7 +136,7 @@ bool no_deprecation = false;
 // process-relative uptime base, initialized at start-up
 static double prog_start_time;
 
-static volatile bool debugger_running = false;
+volatile bool debugger_running = false;
 static uv_async_t dispatch_debug_messages_async;
 static uv_async_t emit_debug_enabled_async;
 
@@ -2846,12 +2846,19 @@ static void EnableDebug(bool wait_connect) {
 
 #ifdef __POSIX__
 static void EnableDebugSignalHandler(uv_signal_t* handle, int) {
-  // Break once process will return execution to v8
-  v8::Debug::DebugBreak(node_isolate);
-
   if (!debugger_running) {
+    // Break once process will return execution to v8
+    v8::Debug::DebugBreak(node_isolate);
+
     fprintf(stderr, "Hit SIGUSR1 - starting debugger agent.\n");
     EnableDebug(false);
+  } else {
+    node_isolate->Enter();
+    v8::Debug::SetDebugMessageDispatchHandler(NULL, false);
+    v8::Debug::CancelDebugBreak(node_isolate);
+    v8::Debug::DisableAgent();
+    debugger_running = false;
+    node_isolate->Exit();
   }
 }
 
@@ -2889,7 +2896,7 @@ void DebugProcess(const FunctionCallbackInfo<Value>& args) {
 DWORD WINAPI EnableDebugThreadProc(void* arg) {
   // Break once process will return execution to v8
   if (!debugger_running) {
-    for (int i = 0; i < 1; i++) {
+    for iint i = 0; i < 1; i++) {
       fprintf(stderr, "Starting debugger agent.\r\n");
       fflush(stderr);
       EnableDebug(false);
